@@ -155,15 +155,16 @@ module Structuriz
       entity
     end
 
-    def container(name_or_entity = nil)
+    def container(name_or_entity = nil, *description)
       name = name_or_entity.is_a?(String) ? name_or_entity : name_or_entity.id
       container = Container.new(
         id: generate_id_for(:container),
         name: name,
+        description: description,
         entity: name_or_entity.is_a?(String) ? nil : name_or_entity
       )
 
-      expression = "#{container.id} = container #{name_or_entity.is_a?(String) ? quotefy(name) : name_or_entity.id}"
+      expression = "#{container.id} = container #{name_or_entity.is_a?(String) ? quotefy(name) : name_or_entity.id} #{expression_params(*description)}"
 
       if block_given?
         block_indented(expression) { yield(container.entity || container) }
@@ -184,30 +185,50 @@ module Structuriz
       entity
     end
 
-    def deployment(name, description = nil)
-      name = '*' if name == :all
+    def deployment(entity, name = nil, description = nil)
+      entity_id = entity == :all ? '*' : entity.id
 
-      entity = Deployment.new(
+      deployment = Deployment.new(
         id: generate_id_for(:deployment),
+        name: name,
+        description: description,
+        entity: entity,
+        description: description
+      )
+
+      block_indented("#{deployment.id} = deployment #{entity_id} #{block_params(name, description)}") do
+        yield(deployment) if block_given?
+      end
+
+      deployment
+    end
+
+    def deployment_environment(name, *description)
+      deployment_environment = DeploymentEnvironment.new(
+        id: generate_id_for(:deploymen_environment),
         name: name,
         description: description
       )
 
-      block_indented("deployment #{name} #{block_params(description)}") do
-        yield(entity) if block_given?
+      block_indented("#{deployment_environment.id} = deploymentEnvironment #{block_params(name, *description)}") do
+        yield(deployment_environment) if block_given?
       end
+
+      deployment_environment
     end
 
-    def deployment_environment(name)
-      block_indented("deploymentEnvironment #{block_params(name)}") do
-        yield if block_given?
-      end
-    end
+    def deployment_node(name, *description)
+      deployment_node = DeploymentNode.new(
+        id: generate_id_for(:deployment_node),
+        name: name,
+        description: description
+      )
 
-    def deployment_node(name)
-      block_indented("deploymentNode #{block_params(name)}") do
-        yield if block_given?
+      block_indented("#{deployment_node.id} = deploymentNode #{block_params(name, *description)}") do
+        yield(deployment_node) if block_given?
       end
+
+      deployment_node
     end
 
     def deployment_group(name)
@@ -237,9 +258,9 @@ module Structuriz
         print_indented(expression)
       end
 
-      def point_to(entity, label: nil)
+      def point_to(entity, label: nil, description: nil)
         expression = "#{id} -> #{entity.id}"
-        expression += " #{quotefy(label)}" if label
+        expression += " #{expression_params(label, description)}" if label
 
         print_indented(expression)
       end
@@ -260,8 +281,14 @@ module Structuriz
     # Deployment Type class
     class Deployment < SimpleBase; end
 
+    # DeploymentEnvironment Type class
+    class DeploymentEnvironment < SimpleBase; end
+
     # DeploymentGroup Type class
     class DeploymentGroup < SimpleBase; end
+
+    # DeploymentNode Type class
+    class DeploymentNode < SimpleBase; end
 
     # SystemContext Block Type class
     class SystemContext < SimpleBase; end
