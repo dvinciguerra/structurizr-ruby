@@ -1,0 +1,295 @@
+#!ruby
+# frozen_string_literal: true
+
+# Testing: https://structurizr.com/dsl
+# Reference: https://github.com/structurizr/dsl/blob/master/docs/language-reference.md#general-rules
+
+require "securerandom"
+
+module Structuriz
+  module Indentable
+    extend self
+
+    @@indent_level = 0
+
+    def increase_level
+      @@indent_level += 1
+    end
+
+    def decrease_level
+      @@indent_level -= 1
+    end
+
+    def indent
+      "  " * @@indent_level
+    end
+
+    def print_indented(value)
+      puts "#{indent}#{value}"
+    end
+
+    def block_indented(expression)
+      print_indented("#{expression} {")
+      increase_level
+      yield if block_given?
+      decrease_level
+      print_indented("}")
+    end
+  end
+
+  module Utils
+    def generate_id_for(name)
+      "#{name}_#{SecureRandom.hex(8)}_#{Time.now.to_i.to_s(32)}"
+    end
+
+    def quotefy(value)
+      %["#{value}"]
+    end
+
+    def quotefy_list(values)
+      values.compact.map { |value| quotefy(value) }
+    end
+  end
+
+  module Serializers
+    def block_params(*values)
+      return "" if values.compact.empty?
+
+      quotefy_list(values).join(" ")
+    end
+
+    def raw_params(*values)
+      return "" if values.compact.empty?
+
+      values.join(" ")
+    end
+  end
+
+  module Blocks
+    def workspace(name = nil, description = nil)
+      block_indented("workspace #{block_params(name, description)}") do
+        yield if block_given?
+      end
+    end
+
+    def model
+      block_indented("model") do
+        yield if block_given?
+      end
+    end
+
+    def views
+      view = Views.new
+
+      block_indented("views") do
+        yield(view) if block_given?
+      end
+    end
+
+    def styles
+      block_indented("styles") do
+        yield if block_given?
+      end
+    end
+
+    def person(name, description = nil)
+      id = generate_id_for(:person)
+
+      entity = Person.new(id: id, name: name, description: description)
+      print_indented("#{entity.id} =  person #{block_params(name, description)}")
+
+      entity
+    end
+
+    def software_system(name, description = nil)
+      system = SoftwareSystem.new(
+        id: generate_id_for(:software_system),
+        name: name,
+        description: description
+      )
+
+      expression = "#{system.id} = softwareSystem #{block_params(name, description)}"
+
+      if block_given?
+        block_indented(expression) do
+          yield(system) if block_given?
+        end
+      else
+        print_indented(expression)
+      end
+
+      system
+    end
+
+    def system_context(entity, name = nil, description = nil)
+      context = SystemContext.new(
+        id: generate_id_for(:software_context),
+        entity: entity,
+        name: name,
+        description: description
+      )
+
+      expression = "#{context.id} = systemContext #{entity.id} #{block_params(name, description)}"
+      block_indented(expression) do
+        yield(context) if block_given?
+      end
+
+      context
+    end
+
+    def element(name)
+      entity = Element.new(id: generate_id_for(:element), name: name)
+
+      block_indented("element #{block_params(name)}") do
+        yield(entity) if block_given?
+      end
+
+      entity
+    end
+
+    def container(name_or_entity = nil)
+      name = name_or_entity.is_a?(String) ? name_or_entity : name_or_entity.id
+      container = Container.new(
+        id: generate_id_for(:container),
+        name: name,
+        entity: name_or_entity.is_a?(String) ? nil : name_or_entity
+      )
+
+      expression = "#{container.id} = container #{name_or_entity.is_a?(String) ? quotefy(name) : name_or_entity.id}"
+
+      if block_given?
+        block_indented(expression) { yield(container.entity || container) }
+      else
+        print_indented expression
+      end
+
+      container
+    end
+
+    def enterprise(name = nil)
+      entity = Enterprise.new(id: generate_id_for(:enterprise), name: name)
+
+      block_indented("#{entity.id} = entreprise #{block_params(name)}") do
+        yield(entity) if block_given?
+      end
+
+      entity
+    end
+
+    def deployment(name, description = nil)
+      name = '*' if name == :all
+
+      entity = Deployment.new(
+        id: generate_id_for(:deployment),
+        name: name,
+        description: description
+      )
+
+      block_indented("deployment #{name} #{block_params(description)}") do
+        yield(entity) if block_given?
+      end
+    end
+
+    def deployment_environment(name)
+      block_indented("deploymentEnvironment #{block_params(name)}") do
+        yield if block_given?
+      end
+    end
+
+    def deployment_node(name)
+      block_indented("deploymentNode #{block_params(name)}") do
+        yield if block_given?
+      end
+    end
+
+    def deployment_group(name)
+      entity = DeploymentGroup.new(id: generate_id_for(:deployment_group), name: name)
+      print_indented("#{entity.id} = deploymentGroup #{block_params(name)}")
+      entity
+    end
+
+    def container_instance(entity, service = nil)
+      print_indented("containerInstance #{raw_params(entity.id, service ? service.id : nil)}")
+    end
+  end
+
+  module Entities
+    class SimpleBase < Struct.new(:id, :name, :description, :entity, keyword_init: true)
+      def includes(value)
+        value = "*" if value == :all
+        expression = "include #{value}"
+
+        print_indented(expression)
+      end
+
+      def auto_layout(value = nil)
+        expression = "autoLayout"
+        expression += " #{value}" if value
+
+        print_indented(expression)
+      end
+
+      def point_to(entity, label: nil)
+        expression = "#{id} -> #{entity.id}"
+        expression += " #{quotefy(label)}" if label
+
+        print_indented(expression)
+      end
+    end
+
+    # Person Type class
+    class Person < SimpleBase; end
+
+    # SoftwareSystem Type class
+    class SoftwareSystem < SimpleBase; end
+
+    # Container Type class
+    class Container < SimpleBase; end
+
+    # Enterprise Type class
+    class Enterprise < SimpleBase; end
+
+    # Deployment Type class
+    class Deployment < SimpleBase; end
+
+    # DeploymentGroup Type class
+    class DeploymentGroup < SimpleBase; end
+
+    # SystemContext Block Type class
+    class SystemContext < SimpleBase; end
+
+    # Views Block Type class
+    class Views
+      def theme(value)
+        print_indented("theme #{value}")
+      end
+    end
+
+    # Styles Element Block Type class
+    class Element < Struct.new(:id, :name, keyword_init: true)
+      def background(value)
+        print_indented("background #{value}")
+      end
+
+      def color(value)
+        print_indented("color #{value}")
+      end
+
+      def shape(value)
+        print_indented("shape #{value}")
+      end
+    end
+  end
+end
+
+include Structuriz::Indentable
+include Structuriz::Utils
+include Structuriz::Blocks
+include Structuriz::Serializers
+include Structuriz::Entities
+
+# transpile
+file_path = ARGV[0]
+source = File.read(file_path)
+
+eval(source)
