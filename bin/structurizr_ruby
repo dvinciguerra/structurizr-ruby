@@ -70,6 +70,10 @@ module Structuriz
   end
 
   module Blocks
+    def identifiers!(value)
+      print_indented("!identifiers #{value}")
+    end
+
     def workspace(name = nil, description = nil)
       block_indented("workspace #{block_params(name, description)}") do
         yield if block_given?
