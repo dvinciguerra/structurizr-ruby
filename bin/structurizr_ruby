@@ -46,16 +46,20 @@ module Structuriz
       %["#{value}"]
     end
 
-    def quotefy_list(values)
+    def quotefy_list(*values)
       values.compact.map { |value| quotefy(value) }
     end
   end
 
   module Serializers
-    def block_params(*values)
+    def expression_params(*values)
       return "" if values.compact.empty?
 
-      quotefy_list(values).join(" ")
+      quotefy_list(*values).join(" ")
+    end
+
+    def block_params(*values)
+      expression_params(*values)
     end
 
     def raw_params(*values)
