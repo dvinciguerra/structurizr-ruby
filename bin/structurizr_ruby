@@ -296,8 +296,12 @@ include Structuriz::Blocks
 include Structuriz::Serializers
 include Structuriz::Entities
 
+class FilenameRequireError < ArgumentError; end
+
 # transpile
 file_path = ARGV[0]
+raise FilenameRequireError, 'filename is required' unless file_path
+
 source = File.read(file_path)
 
 eval(source)
