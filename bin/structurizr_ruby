@@ -193,7 +193,6 @@ module Structuriz
         name: name,
         description: description,
         entity: entity,
-        description: description
       )
 
       block_indented("#{deployment.id} = deployment #{entity_id} #{block_params(name, description)}") do
@@ -243,7 +242,7 @@ module Structuriz
   end
 
   module Entities
-    class SimpleBase < Struct.new(:id, :name, :description, :entity, keyword_init: true)
+    SimpleBase = Struct.new(:id, :name, :description, :entity, keyword_init: true) do
       def includes(value)
         value = "*" if value == :all
         expression = "include #{value}"
@@ -308,7 +307,6 @@ module Structuriz
 
       def color(value)
         print_indented("color #{value}")
-      end
 
       def shape(value)
         print_indented("shape #{value}")
